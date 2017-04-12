@@ -20,4 +20,6 @@ This controller was started as a hobby project to grow some fresh herbs for my k
     1. pH measurement (possibly – depends on whether pH probe can be acquired for a reasonable sum).
     1. Adding an enclosure with a fan for moisture/temperature control.
 
+First version of hardware/software (simplified – only two pumps, no sensors, no display/logger, etc.) deployed on April 12th 2017 for unattended test run of about 10 days.
+
 The project is licensed under [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0) license](LICENSE)
