@@ -1,63 +1,20 @@
 #include <Arduino.h>
 
+#include <avr/pgmspace.h>
+
 #include <Wire.h>
-#include <BH1750.h>
 
+#include <RtcDS3231.h>
 
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
-#include <DHT_U.h>
-
-#include <Rtc3201.h>
-
-#include "EEPROM.h"
 #include "Config.h"
 
-#define DHTPIN        3
-#define DHTTYPE       DHT22
-
-BH1750 lightMeter(ADDR_LUX);
-DHT_Unified dht(DHTPIN, DHTTYPE);
-uint32_t delayMS;
-Rtc3201<TwoWire> Rtc(Wire);
-EEPROM rtcPROM(ADDR_EEPROM);
+RtcDS3231<TwoWire> Rtc(Wire);
 
 void printDateTime(const RtcDateTime& dt);
 
 void setup(){
 
   Serial.begin(9600);
-
-  lightMeter.begin(BH1750_CONTINUOUS_HIGH_RES_MODE);
-  //Serial.println(F("BH1750 Test"));
-
-  dht.begin();
-  Serial.println(F("DHTxx Unified Sensor Example"));
-  // Print temperature sensor details.
-  sensor_t sensor;
-  dht.temperature().getSensor(&sensor);
-  Serial.println(F("------------------------------------"));
-  Serial.println(F("Temperature"));
-  Serial.print  (F("Sensor:       ")); Serial.println(sensor.name);
-  Serial.print  (F("Driver Ver:   ")); Serial.println(sensor.version);
-  Serial.print  (F("Unique ID:    ")); Serial.println(sensor.sensor_id);
-  Serial.print  (F("Max Value:    ")); Serial.print(sensor.max_value); Serial.println(" *C");
-  Serial.print  (F("Min Value:    ")); Serial.print(sensor.min_value); Serial.println(" *C");
-  Serial.print  (F("Resolution:   ")); Serial.print(sensor.resolution); Serial.println(" *C");
-  Serial.println(F("------------------------------------"));
-  // Print humidity sensor details.
-  dht.humidity().getSensor(&sensor);
-  Serial.println(F("------------------------------------"));
-  Serial.println(F("Humidity"));
-  Serial.print  (F("Sensor:       ")); Serial.println(sensor.name);
-  Serial.print  (F("Driver Ver:   ")); Serial.println(sensor.version);
-  Serial.print  (F("Unique ID:    ")); Serial.println(sensor.sensor_id);
-  Serial.print  (F("Max Value:    ")); Serial.print(sensor.max_value); Serial.println("%");
-  Serial.print  (F("Min Value:    ")); Serial.print(sensor.min_value); Serial.println("%");
-  Serial.print  (F("Resolution:   ")); Serial.print(sensor.resolution); Serial.println("%");
-  Serial.println(F("------------------------------------"));
-  // Set delay between sensor readings based on sensor details.
-  delayMS = sensor.min_delay / 1000;
 
   Rtc.Begin();
   RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
@@ -102,43 +59,18 @@ void setup(){
 
       // never assume the Rtc was last configured by you, so
       // just clear them to your needed state
-      Rtc.SetSquareWavePin(DS1307SquareWaveOut_Low);
+      Rtc.Enable32kHzPin(false);
+      Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
 
-      //rtcPROM.write(0x00, 42);
+      pinMode(AIRPUMP_PIN, OUTPUT);digitalWrite(AIRPUMP_PIN, HIGH);
+      pinMode(WATERPUMP_PIN, OUTPUT);digitalWrite(WATERPUMP_PIN, HIGH);
+
 }
 
 
 void loop() {
 
-  uint16_t lux = lightMeter.readLightLevel();
-  Serial.print("Light: ");
-  Serial.print(lux);
-  Serial.println(" lx");
-  delay(1000);
 
-
-  delay(delayMS);
-    // Get temperature event and print its value.
-    sensors_event_t event;
-    dht.temperature().getEvent(&event);
-    if (isnan(event.temperature)) {
-      Serial.println(F("Error reading temperature!"));
-    }
-    else {
-      Serial.print(F("Temperature: "));
-      Serial.print(event.temperature);
-      Serial.println(F(" *C"));
-    }
-    // Get humidity event and print its value.
-    dht.humidity().getEvent(&event);
-    if (isnan(event.relative_humidity)) {
-      Serial.println(F("Error reading humidity!"));
-    }
-    else {
-      Serial.print(F("Humidity: "));
-      Serial.print(event.relative_humidity);
-      Serial.println("%");
-    };
     if (!Rtc.IsDateTimeValid())
         {
             // Common Cuases:
@@ -148,12 +80,28 @@ void loop() {
 
         RtcDateTime now = Rtc.GetDateTime();
 
-        printDateTime(now);
         Serial.println();
 
-        delay(10000); // ten seconds
-        uint8_t c = rtcPROM.readB(0x00);
-        Serial.println(c, OCT);
+        uint8_t nHour = now.Hour();
+        uint8_t nMin  = now.Minute();
+        if((nMin>=motorControl[nHour][0])&&(nMin<=motorControl[nHour][1]))
+        {
+          digitalWrite(AIRPUMP_PIN, LOW);
+          Serial.print(F("Air pump turned on at: "));
+          printDateTime(now);
+          Serial.println();
+        } else {
+          digitalWrite(AIRPUMP_PIN, HIGH);
+        };
+        if((nMin>=motorControl[nHour][2])&&(nMin<=motorControl[nHour][3]))
+        {
+          digitalWrite(WATERPUMP_PIN, LOW);
+          Serial.print(F("Water pump turned on at: "));
+          printDateTime(now);
+          Serial.println();
+        } else {
+          digitalWrite(WATERPUMP_PIN, HIGH);
+        };
 }
 
 #define countof(a) (sizeof(a) / sizeof(a[0]))
