@@ -10,11 +10,17 @@
 
 RtcDS3231<TwoWire> Rtc(Wire);
 
+RtcDateTime now;
+
+bool AirPumpOff    = true;
+bool WaterPumpOff  = true;
+
 void printDateTime(const RtcDateTime& dt);
 
 void setup(){
 
   Serial.begin(9600);
+  Serial.println("Starting up...");
 
   Rtc.Begin();
   RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
@@ -42,7 +48,7 @@ void setup(){
           Rtc.SetIsRunning(true);
       }
 
-      RtcDateTime now = Rtc.GetDateTime();
+      now = Rtc.GetDateTime();
       if (now < compiled)
       {
           Serial.println(F("RTC is older than compile time!  (Updating DateTime)"));
@@ -64,6 +70,8 @@ void setup(){
 
       pinMode(AIRPUMP_PIN, OUTPUT);digitalWrite(AIRPUMP_PIN, HIGH);
       pinMode(WATERPUMP_PIN, OUTPUT);digitalWrite(WATERPUMP_PIN, HIGH);
+      now = Rtc.GetDateTime();
+      printDateTime(now);Serial.println();
 
 }
 
@@ -76,32 +84,51 @@ void loop() {
             // Common Cuases:
             //    1) the battery on the device is low or even missing and the power line was disconnected
             Serial.println(F("RTC lost confidence in the DateTime!"));
-        }
+        };
 
-        RtcDateTime now = Rtc.GetDateTime();
-
-        Serial.println();
+        now = Rtc.GetDateTime();
 
         uint8_t nHour = now.Hour();
         uint8_t nMin  = now.Minute();
-        if((nMin>=motorControl[nHour][0])&&(nMin<=motorControl[nHour][1]))
+        if((nMin>=motorControl[nHour][0]) && (nMin<motorControl[nHour][1]))
         {
-          digitalWrite(AIRPUMP_PIN, LOW);
-          Serial.print(F("Air pump turned on at: "));
-          printDateTime(now);
-          Serial.println();
+          if (AirPumpOff)
+            {
+              digitalWrite(AIRPUMP_PIN, LOW); AirPumpOff = false;
+              Serial.print(F("Air pump turned on at: "));
+              printDateTime(now);
+              Serial.println();
+            }
         } else {
-          digitalWrite(AIRPUMP_PIN, HIGH);
+          if(!AirPumpOff)
+            {
+              digitalWrite(AIRPUMP_PIN, HIGH);
+              AirPumpOff = true;
+              Serial.print(F("Air pump turned off at: "));
+              printDateTime(now);
+              Serial.println();
+            }
         };
-        if((nMin>=motorControl[nHour][2])&&(nMin<=motorControl[nHour][3]))
+        if((nMin>=motorControl[nHour][2]) && (nMin<motorControl[nHour][3]))
         {
-          digitalWrite(WATERPUMP_PIN, LOW);
-          Serial.print(F("Water pump turned on at: "));
-          printDateTime(now);
-          Serial.println();
+          if(WaterPumpOff)
+            {
+              digitalWrite(WATERPUMP_PIN, LOW); WaterPumpOff = false;
+              Serial.print(F("Water pump turned on at: "));
+              printDateTime(now);
+              Serial.println();
+            }
         } else {
-          digitalWrite(WATERPUMP_PIN, HIGH);
+          if(!WaterPumpOff)
+            {
+              digitalWrite(WATERPUMP_PIN, HIGH); WaterPumpOff = true;
+              Serial.print(F("Water pump turned off at: "));
+              printDateTime(now);
+              Serial.println();
+            }
         };
+
+
 }
 
 #define countof(a) (sizeof(a) / sizeof(a[0]))
